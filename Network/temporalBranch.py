@@ -1,6 +1,31 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import models
+
+
+class GeneratorLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, g_outputs, targets, d_outputs, lambda_adv=0.1):
+        loss1 = F.mse_loss(g_outputs, targets)
+        loss2 = lambda_adv * torch.log(d_outputs + 1e-8)
+        loss = loss1 - loss2
+        loss = loss.mean()
+        return loss
+
+
+class DiscriminatorLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, d_outputs_real, d_outputs_fake):
+        loss1 = -torch.log(d_outputs_real)
+        loss2 = -torch.log(1 - d_outputs_fake)
+        loss = loss1 + loss2
+        loss = loss.mean()
+        return loss
 
 
 class Res1(nn.Module):
@@ -107,7 +132,7 @@ class Deconv(nn.Module):
         return x
 
 
-class Model(nn.Module):
+class Generator(nn.Module):
     def __init__(self):
         super().__init__()
         self.res1 = Res1()
@@ -161,8 +186,24 @@ class Model(nn.Module):
         return x
 
 
+class Discriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.inception_v3 = models.inception_v3(
+            weights=models.Inception_V3_Weights.DEFAULT
+        )
+        self.inception_v3.aux_logits = False
+        self.inception_v3.fc = nn.Linear(self.inception_v3.fc.in_features, 1)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        x = self.inception_v3(x)
+        x = self.relu(x)
+        return x
+
+
 if __name__ == "__main__":
-    model = Model()
+    model = Generator()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 

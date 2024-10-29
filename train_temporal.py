@@ -1,11 +1,11 @@
-import os
-from PIL import Image
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
-import time
+from torchvision import transforms, models
+from PIL import Image
+import os
 
 from Network import temporalBranch
 
@@ -74,42 +74,72 @@ train_loader = DataLoader(
     prefetch_factor=2,
 )
 
-# 初始化模型
-model = temporalBranch.Model()
+# 初始化生成器和判別器
+generator = temporalBranch.Generator()
+discriminator = temporalBranch.Discriminator()
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
+generator.to(device)
+discriminator.to(device)
 
 # 定義損失函數和優化器
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+criterion_G = temporalBranch.GeneratorLoss()
+criterion_D = temporalBranch.DiscriminatorLoss()
+optimizer_G = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+optimizer_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
 # 訓練模型
 num_epochs = 10
+total_start_time = time.time()  # 記錄總運行時間的開始時間
+
 for epoch in range(num_epochs):
-    epoch_start_time = time.time()
+    epoch_start_time = time.time()  # 記錄每個 epoch 的開始時間
 
-    model.train()
-    running_loss = 0.0
-    for inputs, labels in train_loader:
-        inputs, labels = inputs.to(device), labels.to(device)
+    for i, (input, target) in enumerate(train_loader):
+        batch_size = input.size(0)
 
-        # 前向傳播
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
+        # 創建真實和虛假標籤
+        real_labels = torch.ones(batch_size, 1).to(device)
+        fake_labels = torch.zeros(batch_size, 1).to(device)
 
-        # 反向傳播和優化
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        # 訓練判別器
+        discriminator.zero_grad()
 
-        # 統計損失
-        running_loss += loss.item()
+        real_images = target.to(device)
+        fake_images = generator(input.to(device))
+        outputs_real = discriminator(real_images)
+        outputs_fake = discriminator(fake_images)
+        d_loss = criterion_D(outputs_real, outputs_fake)
+        d_loss.backward()
+        optimizer_D.step()
 
-    epoch_end_time = time.time()
-    epoch_duration = epoch_end_time - epoch_start_time
+        # 訓練生成器
+        generator.zero_grad()
 
-    print(
-        f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader)}, Duration: {epoch_duration:.2f} s"
-    )
+        input = input.to(device)
+        target = target.to(device)
+        outputs_g = generator(input)
+        outputs_d = discriminator(outputs_g)
+        g_loss = criterion_G(outputs_g, target, outputs_d, lambda_adv=0.1)
+        g_loss.backward()
+        optimizer_G.step()
 
-print("訓練完成")
+        if (i + 1) % 10 == 0:
+            print(
+                f"Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{len(train_loader)}], D Loss: {d_loss.item()}, G Loss: {g_loss.item()}"
+            )
+            img = outputs_g[0].detach().cpu()
+            img = transforms.ToPILImage()(img)
+            img.save(f"./Result_images/{epoch+1}_{i+1}_outputs_g.jpg")
+
+            img = target[0].detach().cpu()
+            img = transforms.ToPILImage()(img)
+            img.save(f"./Result_images/{epoch+1}_{i+1}_target.jpg")
+
+    epoch_end_time = time.time()  # 記錄每個 epoch 的結束時間
+    epoch_duration = epoch_end_time - epoch_start_time  # 計算每個 epoch 的運行時間
+    print(f"Epoch [{epoch+1}/{num_epochs}], Duration: {epoch_duration:.2f} s")
+
+total_end_time = time.time()  # 記錄總運行時間的結束時間
+total_duration = total_end_time - total_start_time  # 計算總運行時間
+print(f"訓練完成，總運行時間: {total_duration:.2f} seconds")
