@@ -7,7 +7,7 @@ from torchvision import transforms, models
 from PIL import Image
 import os
 
-from Network import temporalBranch
+from Network import temporalBranch, resnet
 
 
 class DAVIS(Dataset):
@@ -75,7 +75,7 @@ train_loader = DataLoader(
 )
 
 # 初始化生成器和判別器
-generator = temporalBranch.Generator()
+generator = resnet.Generator()
 discriminator = temporalBranch.Discriminator()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

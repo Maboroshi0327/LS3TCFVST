@@ -8,7 +8,7 @@ class GeneratorLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, g_outputs, targets, d_outputs, lambda_adv=0.1):
+    def forward(self, g_outputs, targets, d_outputs, lambda_adv=0.001):
         loss1 = F.mse_loss(g_outputs, targets)
         loss2 = lambda_adv * torch.log(d_outputs + 1e-8)
         loss = loss1 - loss2
@@ -21,8 +21,8 @@ class DiscriminatorLoss(nn.Module):
         super().__init__()
 
     def forward(self, d_outputs_real, d_outputs_fake):
-        loss1 = -torch.log(d_outputs_real)
-        loss2 = -torch.log(1 - d_outputs_fake)
+        loss1 = -torch.log(d_outputs_real + 1e-8)
+        loss2 = -torch.log(1 - d_outputs_fake + 1e-8)
         loss = loss1 + loss2
         loss = loss.mean()
         return loss
