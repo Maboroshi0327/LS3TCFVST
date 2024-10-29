@@ -194,11 +194,11 @@ class Discriminator(nn.Module):
         )
         self.inception_v3.aux_logits = False
         self.inception_v3.fc = nn.Linear(self.inception_v3.fc.in_features, 1)
-        self.relu = nn.ReLU(inplace=True)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         x = self.inception_v3(x)
-        x = self.relu(x)
+        x = self.sigmoid(x)
         return x
 
 

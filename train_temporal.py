@@ -98,43 +98,47 @@ for epoch in range(num_epochs):
     for i, (input, target) in enumerate(train_loader):
         batch_size = input.size(0)
 
-        # 創建真實和虛假標籤
-        real_labels = torch.ones(batch_size, 1).to(device)
-        fake_labels = torch.zeros(batch_size, 1).to(device)
+        # 每 20 次切換訓練模型
+        if (i // 20) % 2 == 0:
+            # 訓練判別器
+            discriminator.zero_grad()
 
-        # 訓練判別器
-        discriminator.zero_grad()
+            real_images = target.to(device)
+            fake_images = generator(input.to(device))
+            outputs_real = discriminator(real_images)
+            outputs_fake = discriminator(fake_images)
+            d_loss = criterion_D(outputs_real, outputs_fake)
+            d_loss.backward()
+            optimizer_D.step()
 
-        real_images = target.to(device)
-        fake_images = generator(input.to(device))
-        outputs_real = discriminator(real_images)
-        outputs_fake = discriminator(fake_images)
-        d_loss = criterion_D(outputs_real, outputs_fake)
-        d_loss.backward()
-        optimizer_D.step()
+        else:
+            # 訓練生成器
+            generator.zero_grad()
 
-        # 訓練生成器
-        generator.zero_grad()
-
-        input = input.to(device)
-        target = target.to(device)
-        outputs_g = generator(input)
-        outputs_d = discriminator(outputs_g)
-        g_loss = criterion_G(outputs_g, target, outputs_d, lambda_adv=0.1)
-        g_loss.backward()
-        optimizer_G.step()
+            real_images = target.to(device)
+            fake_images = generator(input.to(device))
+            outputs_d = discriminator(fake_images)
+            g_loss = criterion_G(fake_images, real_images, outputs_d, lambda_adv=0.1)
+            g_loss.backward()
+            optimizer_G.step()
 
         if (i + 1) % 10 == 0:
-            print(
-                f"Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{len(train_loader)}], D Loss: {d_loss.item()}, G Loss: {g_loss.item()}"
-            )
-            img = outputs_g[0].detach().cpu()
-            img = transforms.ToPILImage()(img)
-            img.save(f"./Result_images/{epoch+1}_{i+1}_outputs_g.jpg")
+            if (i // 20) % 2 == 0:
+                print(
+                    f"Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{len(train_loader)}], D Loss: {d_loss.item()}"
+                )
+            else:
+                print(
+                    f"Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{len(train_loader)}], G Loss: {g_loss.item()}"
+                )
 
-            img = target[0].detach().cpu()
+            img = fake_images[0].detach().cpu()
             img = transforms.ToPILImage()(img)
-            img.save(f"./Result_images/{epoch+1}_{i+1}_target.jpg")
+            img.save(f"./Result_images/{epoch+1}_{i+1}_fake_image.jpg")
+
+            img = real_images[0].detach().cpu()
+            img = transforms.ToPILImage()(img)
+            img.save(f"./Result_images/{epoch+1}_{i+1}_real_image.jpg")
 
     epoch_end_time = time.time()  # 記錄每個 epoch 的結束時間
     epoch_duration = epoch_end_time - epoch_start_time  # 計算每個 epoch 的運行時間
