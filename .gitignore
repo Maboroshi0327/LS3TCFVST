@@ -1,4 +1,6 @@
-DAVIS/
 Network/__pycache__/
+__pycache__/
 Result_images/
 Pretrained/
+Datasets/
+Save_models/

@@ -193,6 +193,7 @@ class Discriminator(nn.Module):
             weights=models.Inception_V3_Weights.DEFAULT
         )
         self.inception_v3.aux_logits = False
+        self.inception_v3.AuxLogits = None
         self.inception_v3.fc = nn.Linear(self.inception_v3.fc.in_features, 1)
         self.sigmoid = nn.Sigmoid()
 
