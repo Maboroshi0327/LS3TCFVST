@@ -31,8 +31,12 @@ discriminator.to(device)
 # 定義損失函數和優化器
 criterion_G = temporalBranch.GeneratorLoss()
 criterion_D = temporalBranch.DiscriminatorLoss()
-optimizer_G = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-optimizer_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+optimizer_G = optim.Adam(
+    generator.parameters(), lr=0.00001, betas=(0.5, 0.999), weight_decay=0.0002
+)
+optimizer_D = optim.Adam(
+    discriminator.parameters(), lr=0.0001, betas=(0.5, 0.999), weight_decay=0.0002
+)
 
 # 訓練模型
 num_epochs = 10
@@ -55,7 +59,7 @@ for epoch in range(num_epochs):
         real_images = target.to(device)
         fake_images = generator(input.to(device))
         outputs_real = discriminator(real_images)
-        outputs_fake = discriminator(fake_images)
+        outputs_fake = discriminator(fake_images.detach())
         d_loss = criterion_D(outputs_real, outputs_fake)
         d_loss.backward()
         optimizer_D.step()
@@ -84,8 +88,8 @@ for epoch in range(num_epochs):
             img.save(f"./Result_images/epoch_{epoch+1}_{i+1}_real_image.jpg")
 
             # 儲存模型
-            torch.save(generator.state_dict(), f'./Save_models/generator_epoch_{epoch+1}_batch_{i+1}.pth')
-            torch.save(discriminator.state_dict(), f'./Save_models/discriminator_epoch_{epoch+1}_batch_{i+1}.pth')
+            # torch.save(generator.state_dict(), f'./Save_models/generator_epoch_{epoch+1}_batch_{i+1}.pth')
+            # torch.save(discriminator.state_dict(), f'./Save_models/discriminator_epoch_{epoch+1}_batch_{i+1}.pth')
 
     # 儲存生成的圖片
     img = fake_images[0].detach().cpu()
@@ -96,8 +100,13 @@ for epoch in range(num_epochs):
     img.save(f"./Result_images/epoch_{epoch+1}_end_real_image.jpg")
 
     # 儲存模型
-    torch.save(generator.state_dict(), f'./Save_models/generator_epoch_{epoch+1}_end.pth')
-    torch.save(discriminator.state_dict(), f'./Save_models/discriminator_epoch_{epoch+1}_end.pth')
+    torch.save(
+        generator.state_dict(), f"./Save_models/generator_epoch_{epoch+1}_end.pth"
+    )
+    torch.save(
+        discriminator.state_dict(),
+        f"./Save_models/discriminator_epoch_{epoch+1}_end.pth",
+    )
 
     epoch_end_time = time.time()  # 記錄每個 epoch 的結束時間
     epoch_duration = epoch_end_time - epoch_start_time  # 計算每個 epoch 的運行時間
