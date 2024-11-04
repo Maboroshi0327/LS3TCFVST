@@ -11,7 +11,7 @@ from datasets import DAVIS, ILSVRC2015_VID
 
 
 # 準備數據集和數據加載器
-train_dataset = ILSVRC2015_VID(mode="train", resolution=256)
+train_dataset = DAVIS(mode="train", resolution=512)
 train_loader = DataLoader(
     train_dataset,
     batch_size=8,
@@ -31,14 +31,12 @@ discriminator.to(device)
 # 定義損失函數和優化器
 criterion_G = temporalBranch.GeneratorLoss()
 criterion_D = temporalBranch.DiscriminatorLoss()
-optimizer_G = optim.Adam(
-    generator.parameters(), lr=0.00001, betas=(0.5, 0.999), weight_decay=0.0002
-)
-optimizer_D = optim.Adam(
-    discriminator.parameters(), lr=0.0001, betas=(0.5, 0.999), weight_decay=0.0002
-)
+optimizer_G = optim.Adam(generator.parameters(), lr=0.0001, weight_decay=0.0002)
+optimizer_D = optim.Adam(discriminator.parameters(), lr=0.0001, weight_decay=0.0002)
 
 # 訓練模型
+G_Loss = 10
+D_Loss = 10
 num_epochs = 10
 total_start_time = time.time()  # 記錄總運行時間的開始時間
 
@@ -54,31 +52,41 @@ for epoch in range(num_epochs):
         batch_size = input.size(0)
 
         # 訓練判別器
-        discriminator.zero_grad()
+        count = 0
+        while D_Loss > G_Loss and count < 20:
+            discriminator.zero_grad()
 
-        real_images = target.to(device)
-        fake_images = generator(input.to(device))
-        outputs_real = discriminator(real_images)
-        outputs_fake = discriminator(fake_images.detach())
-        d_loss = criterion_D(outputs_real, outputs_fake)
-        d_loss.backward()
-        optimizer_D.step()
+            real_images = target.to(device)
+            fake_images = generator(input.to(device))
+            outputs_real = discriminator(real_images)
+            outputs_fake = discriminator(fake_images.detach())
+            d_loss = criterion_D(outputs_real, outputs_fake)
+            d_loss.backward()
+            optimizer_D.step()
+
+            D_Loss = d_loss.item()
+            count += 1
 
         # 訓練生成器
-        generator.zero_grad()
+        count = 0
+        while G_Loss >= D_Loss and count < 20:
+            generator.zero_grad()
 
-        real_images = target.to(device)
-        fake_images = generator(input.to(device))
-        outputs_d = discriminator(fake_images)
-        g_loss = criterion_G(fake_images, real_images, outputs_d, lambda_adv=0.1)
-        g_loss.backward()
-        optimizer_G.step()
+            real_images = target.to(device)
+            fake_images = generator(input.to(device))
+            outputs_d = discriminator(fake_images)
+            g_loss = criterion_G(fake_images, real_images, outputs_d, lambda_adv=0.1)
+            g_loss.backward()
+            optimizer_G.step()
+
+            G_Loss = g_loss.item()
+            count += 1
 
         # 更新進度條後綴資訊
-        batch_iterator.set_postfix(G_Loss=g_loss.item(), D_Loss=d_loss.item())
+        batch_iterator.set_postfix(G_Loss=G_Loss, D_Loss=D_Loss)
 
         # 每 1000 個 batch 輸出一次訓練結果
-        if (i + 1) % 1000 == 0:
+        if (i + 1) % 1 == 0:
             # 儲存生成的圖片
             img = fake_images[0].detach().cpu()
             img = transforms.ToPILImage()(img)
