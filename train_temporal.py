@@ -6,22 +6,22 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from Network import temporalBranch, resnet
+from Network import temporalBranch
 from datasets import DAVIS, ILSVRC2015_VID
 
 
 # 準備數據集和數據加載器
-train_dataset = DAVIS(mode="train", resolution=512)
+train_dataset = ILSVRC2015_VID(mode="train", resolution=256)
 train_loader = DataLoader(
     train_dataset,
     batch_size=8,
-    shuffle=False,
+    shuffle=True,
     num_workers=12,
     prefetch_factor=2,
 )
 
 # 初始化生成器和判別器
-generator = resnet.Generator()
+generator = temporalBranch.Generator()
 discriminator = temporalBranch.Discriminator()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -53,7 +53,7 @@ for epoch in range(num_epochs):
 
         # 訓練判別器
         count = 0
-        while D_Loss > G_Loss and count < 20:
+        while D_Loss > G_Loss and count < 10:
             discriminator.zero_grad()
 
             real_images = target.to(device)
@@ -69,7 +69,7 @@ for epoch in range(num_epochs):
 
         # 訓練生成器
         count = 0
-        while G_Loss >= D_Loss and count < 20:
+        while G_Loss >= D_Loss and count < 10:
             generator.zero_grad()
 
             real_images = target.to(device)
@@ -85,19 +85,25 @@ for epoch in range(num_epochs):
         # 更新進度條後綴資訊
         batch_iterator.set_postfix(G_Loss=G_Loss, D_Loss=D_Loss)
 
-        # 每 1000 個 batch 輸出一次訓練結果
-        if (i + 1) % 1 == 0:
-            # 儲存生成的圖片
-            img = fake_images[0].detach().cpu()
-            img = transforms.ToPILImage()(img)
-            img.save(f"./Result_images/epoch_{epoch+1}_{i+1}_fake_image.jpg")
-            img = real_images[0].detach().cpu()
-            img = transforms.ToPILImage()(img)
-            img.save(f"./Result_images/epoch_{epoch+1}_{i+1}_real_image.jpg")
+        # 儲存生成的圖片
+        img = fake_images[0].detach().cpu()
+        img = transforms.ToPILImage()(img)
+        img.save(f"./Result_images/epoch_{epoch+1}_{i+1}_fake_image.jpg")
+        img = real_images[0].detach().cpu()
+        img = transforms.ToPILImage()(img)
+        img.save(f"./Result_images/epoch_{epoch+1}_{i+1}_real_image.jpg")
 
+        # 每 1000 個 batch 輸出一次模型
+        if (i + 1) % 1000 == 0:
             # 儲存模型
-            # torch.save(generator.state_dict(), f'./Save_models/generator_epoch_{epoch+1}_batch_{i+1}.pth')
-            # torch.save(discriminator.state_dict(), f'./Save_models/discriminator_epoch_{epoch+1}_batch_{i+1}.pth')
+            torch.save(
+                generator.state_dict(),
+                f"./Save_models/generator_epoch_{epoch+1}_batch_{i+1}.pth",
+            )
+            torch.save(
+                discriminator.state_dict(),
+                f"./Save_models/discriminator_epoch_{epoch+1}_batch_{i+1}.pth",
+            )
 
     # 儲存生成的圖片
     img = fake_images[0].detach().cpu()
