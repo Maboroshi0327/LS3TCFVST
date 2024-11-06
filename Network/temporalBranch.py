@@ -261,7 +261,7 @@ def generate_model(**kwargs):
     return model
 
 
-def Generator():
+def Generator(trained_model_path="./Pretrained/r3d18_K_200ep.pth"):
     model = generate_model(
         n_input_channels=3,
         shortcut_type="B",
@@ -272,18 +272,24 @@ def Generator():
     )
 
     # 加載已訓練模型的參數
-    trained_model_path = "./Pretrained/r3d18_K_200ep.pth"
+    trained_model_path = trained_model_path
     trained_state_dict = torch.load(trained_model_path, weights_only=False)
 
     # 只加載模型中已有的參數
-    new_state_dict = {
-        k: v
-        for k, v in trained_state_dict["state_dict"].items()
-        if k in model.state_dict()
-    }
+    try:
+        new_state_dict = {
+            k: v
+            for k, v in trained_state_dict["state_dict"].items()
+            if k in model.state_dict()
+        }
+    except KeyError:
+        new_state_dict = {
+            k: v for k, v in trained_state_dict.items() if k in model.state_dict()
+        }
     model.load_state_dict(new_state_dict, strict=False)
 
     # 檢查新的模型是否正確加載了參數
+    print("-------------------Generator-------------------")
     for name, param in model.named_parameters():
         if name in new_state_dict:
             print(f"Loaded {name} from trained model.")
@@ -296,7 +302,8 @@ def Generator():
 # endregion
 
 
-class Discriminator(nn.Module):
+# region Discriminator
+class DiscriminatorModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.inception_v3 = models.inception_v3(
@@ -312,6 +319,35 @@ class Discriminator(nn.Module):
         x = self.sigmoid(x)
         return x
 
+
+def Discriminator(trained_model_path=None):
+    model = DiscriminatorModel()
+
+    if trained_model_path is None:
+        return model
+
+    # 加載已訓練模型的參數
+    trained_model_path = trained_model_path
+    trained_state_dict = torch.load(trained_model_path, weights_only=False)
+
+    # 只加載模型中已有的參數
+    new_state_dict = {
+        k: v for k, v in trained_state_dict.items() if k in model.state_dict()
+    }
+    model.load_state_dict(new_state_dict, strict=False)
+
+    # 檢查新的模型是否正確加載了參數
+    print("-----------------Discriminator-----------------")
+    for name, param in model.named_parameters():
+        if name in new_state_dict:
+            print(f"Loaded {name} from trained model.")
+        else:
+            print(f"Initialized {name} randomly.")
+
+    return model
+
+
+# endregion
 
 if __name__ == "__main__":
     # 建立模型

@@ -21,8 +21,12 @@ train_loader = DataLoader(
 )
 
 # 初始化生成器和判別器
-generator = temporalBranch.Generator()
-discriminator = temporalBranch.Discriminator()
+generator = temporalBranch.Generator(
+    trained_model_path="./Pretrained/generator_epoch_1_end.pth"
+)
+discriminator = temporalBranch.Discriminator(
+    trained_model_path="./Pretrained/discriminator_epoch_1_end.pth"
+)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 generator.to(device)
@@ -37,19 +41,17 @@ optimizer_D = optim.Adam(discriminator.parameters(), lr=0.0001, weight_decay=0.0
 # 訓練模型
 G_Loss = 10
 D_Loss = 10
-num_epochs = 10
+start_epoch = 2
+end_epoch = 10
 total_start_time = time.time()  # 記錄總運行時間的開始時間
 
-for epoch in range(num_epochs):
+for epoch in range(start_epoch, end_epoch + 1):
     epoch_start_time = time.time()  # 記錄每個 epoch 的開始時間
 
     # 初始化進度條
-    batch_iterator = tqdm(
-        train_loader, desc=f"Epoch {epoch+1}/{num_epochs}", leave=False
-    )
+    batch_iterator = tqdm(train_loader, desc=f"Epoch {epoch}/{end_epoch}", leave=False)
 
     for i, (input, target) in enumerate(batch_iterator):
-        batch_size = input.size(0)
 
         # 訓練判別器
         count = 0
@@ -85,46 +87,45 @@ for epoch in range(num_epochs):
         # 更新進度條後綴資訊
         batch_iterator.set_postfix(G_Loss=G_Loss, D_Loss=D_Loss)
 
-        # 儲存生成的圖片
-        img = fake_images[0].detach().cpu()
-        img = transforms.ToPILImage()(img)
-        img.save(f"./Result_images/epoch_{epoch+1}_{i+1}_fake_image.jpg")
-        img = real_images[0].detach().cpu()
-        img = transforms.ToPILImage()(img)
-        img.save(f"./Result_images/epoch_{epoch+1}_{i+1}_real_image.jpg")
+        # 每 10 個 batch 儲存生成的圖片
+        if (i + 1) % 10 == 0:
+            img = fake_images[0].detach().cpu()
+            img = transforms.ToPILImage()(img)
+            img.save(f"./Result_images/epoch_{epoch}_{i+1}_fake_image.jpg")
+            img = real_images[0].detach().cpu()
+            img = transforms.ToPILImage()(img)
+            img.save(f"./Result_images/epoch_{epoch}_{i+1}_real_image.jpg")
 
         # 每 1000 個 batch 輸出一次模型
         if (i + 1) % 1000 == 0:
             # 儲存模型
             torch.save(
                 generator.state_dict(),
-                f"./Save_models/generator_epoch_{epoch+1}_batch_{i+1}.pth",
+                f"./Save_models/generator_epoch_{epoch}_batch_{i+1}.pth",
             )
             torch.save(
                 discriminator.state_dict(),
-                f"./Save_models/discriminator_epoch_{epoch+1}_batch_{i+1}.pth",
+                f"./Save_models/discriminator_epoch_{epoch}_batch_{i+1}.pth",
             )
 
     # 儲存生成的圖片
     img = fake_images[0].detach().cpu()
     img = transforms.ToPILImage()(img)
-    img.save(f"./Result_images/epoch_{epoch+1}_end_fake_image.jpg")
+    img.save(f"./Result_images/epoch_{epoch}_end_fake_image.jpg")
     img = real_images[0].detach().cpu()
     img = transforms.ToPILImage()(img)
-    img.save(f"./Result_images/epoch_{epoch+1}_end_real_image.jpg")
+    img.save(f"./Result_images/epoch_{epoch}_end_real_image.jpg")
 
     # 儲存模型
-    torch.save(
-        generator.state_dict(), f"./Save_models/generator_epoch_{epoch+1}_end.pth"
-    )
+    torch.save(generator.state_dict(), f"./Save_models/generator_epoch_{epoch}_end.pth")
     torch.save(
         discriminator.state_dict(),
-        f"./Save_models/discriminator_epoch_{epoch+1}_end.pth",
+        f"./Save_models/discriminator_epoch_{epoch}_end.pth",
     )
 
     epoch_end_time = time.time()  # 記錄每個 epoch 的結束時間
     epoch_duration = epoch_end_time - epoch_start_time  # 計算每個 epoch 的運行時間
-    print(f"Epoch [{epoch+1}/{num_epochs}], Duration: {epoch_duration:.2f} s")
+    print(f"Epoch [{epoch}/{end_epoch}], Duration: {epoch_duration:.2f} s")
 
 total_end_time = time.time()  # 記錄總運行時間的結束時間
 total_duration = total_end_time - total_start_time  # 計算總運行時間
